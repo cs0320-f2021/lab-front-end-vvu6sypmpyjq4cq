@@ -1,12 +1,11 @@
 package edu.brown.cs.student.main;
 
+import com.google.common.collect.ImmutableMap;
 import freemarker.template.Configuration;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
-import spark.ExceptionHandler;
-import spark.Request;
-import spark.Response;
+import spark.*;
 import spark.template.freemarker.FreeMarkerEngine;
 
 import java.io.BufferedReader;
@@ -15,6 +14,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -114,7 +114,12 @@ public final class Main {
    * * IMPLEMENT METHOD runSparkServer() HERE
    */
   private void runSparkServer(int port) {
-    // TODO
+    Spark.port(port);
+    Spark.externalStaticFileLocation("src/main/resources/static");
+    Spark.exception(Exception.class, new ExceptionPrinter());
+    FreeMarkerEngine freeMarker = createEngine();
+    Spark.get("/autocorrect", new AutocorrectHandler(), freeMarker);
+    Spark.post("/results", new SubmitHandler(), freeMarker);
   }
 
   /**
@@ -141,6 +146,13 @@ public final class Main {
    *  @return ModelAndView to render.
    *  (autocorrect.ftl).
    */
+  private static class AutocorrectHandler implements TemplateViewRoute {
+    public ModelAndView handle(Request req, Response res) {
+      Map<String, String> variables = ImmutableMap.of("title", "CS32 Autocorrect", "message", "Welcome!",
+              "suggestions", "");
+      return new ModelAndView(variables, "autocorrect.ftl");
+    }
+  }
 
   /**
    *  IMPLEMENT SubmitHandler HERE
@@ -149,5 +161,19 @@ public final class Main {
    *  @return ModelAndView to render.
    *  (autocorrect.ftl).
    */
+  private static class SubmitHandler implements TemplateViewRoute {
+    public ModelAndView handle(Request req, Response res) {
+      QueryParamsMap qm = req.queryMap();
+      String textFromTextField = qm.value("text");
+      Set<String> s = ac.suggest(textFromTextField);
+      String suggestions = "";
+      for (String word : s) {
+        suggestions += word + "<br />";
+      }
+      Map<String, String> variables = ImmutableMap.of("title", "CS32 Autocorrect", "message", "Welcome!",
+              "suggestions", suggestions);
+      return new ModelAndView(variables, "autocorrect.ftl");
+    }
+  }
 
 }
